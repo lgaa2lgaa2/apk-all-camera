@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/camera.dart';
-import '../models/setup_method.dart';
 import '../services/compatibility_catalog.dart';
 
 class AddCameraScreen extends StatefulWidget {
@@ -11,13 +10,179 @@ class AddCameraScreen extends StatefulWidget {
 }
 
 class _AddCameraScreenState extends State<AddCameraScreen> {
+  final _name = TextEditingController();
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  final _location = TextEditingController();
+  String _family = cameraFamilies.first.name;
+  bool _scanning = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _username.dispose();
+    _password.dispose();
+    _location.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scanNetwork() async {
+    setState(() => _scanning = true);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+    setState(() => _scanning = false);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F1D30),
+      showDragHandle: true,
+      builder: (context) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Recherche terminée', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              SizedBox(height: 8),
+              Text(
+                'La détection automatique ONVIF/RTSP est maintenant prévue dans l’interface. Le moteur réseau réel sera branché ici pour identifier IP, ports et profils vidéo compatibles.',
+                style: TextStyle(color: Color(0xFF91A4BB)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openManualForm() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _ManualCameraForm(family: _family)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const muted = Color(0xFF91A4BB);
+    const panel = Color(0xFF0F1D30);
+    const line = Color(0xFF203751);
+
+    final methods = <_MethodData>[
+      const _MethodData(Icons.qr_code_2, 'QR code', 'Présente le QR devant la caméra.'),
+      const _MethodData(Icons.graphic_eq, 'Son / bip-bip', 'Envoie les données Wi-Fi par signal acoustique.'),
+      const _MethodData(Icons.bluetooth, 'Bluetooth', 'Appairage Bluetooth si disponible.'),
+      const _MethodData(Icons.wifi_tethering, 'Wi-Fi AP', 'Connexion directe au hotspot de la caméra.'),
+      const _MethodData(Icons.radar, 'ONVIF / RTSP', 'Détection automatique sur le réseau.'),
+      const _MethodData(Icons.edit, 'Ajout manuel', 'URL RTSP/HTTP/MJPEG/P2P en secours.'),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Ajouter une caméra')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: panel,
+              border: Border.all(color: line),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Choisis une méthode', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                SizedBox(height: 6),
+                Text('L’application privilégie la détection automatique. Le mode manuel reste disponible en secours.', style: TextStyle(color: muted)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.05,
+            ),
+            itemCount: methods.length,
+            itemBuilder: (context, index) {
+              final method = methods[index];
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: method.title == 'Ajout manuel'
+                    ? _openManualForm
+                    : method.title == 'ONVIF / RTSP'
+                        ? _scanNetwork
+                        : () => showDialog<void>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text(method.title),
+                                content: Text(
+                                  method.title == 'Son / bip-bip'
+                                      ? 'Cette méthode nécessite le protocole audio ou le SDK du fabricant pour fonctionner réellement.'
+                                      : method.description,
+                                ),
+                                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+                              ),
+                            ),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0B1929),
+                    border: Border.all(color: line),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(method.icon, size: 34, color: const Color(0xFF4FD6FF)),
+                      const Spacer(),
+                      Text(method.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 6),
+                      Text(method.description, style: const TextStyle(color: muted, height: 1.25)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _scanning ? null : _scanNetwork,
+            icon: _scanning
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.radar),
+            label: Text(_scanning ? 'Recherche en cours…' : 'Scanner les caméras'),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _family,
+            decoration: const InputDecoration(labelText: 'Famille / application d’origine'),
+            items: cameraFamilies.map((family) => DropdownMenuItem(value: family.name, child: Text(family.name))).toList(),
+            onChanged: (value) => setState(() => _family = value ?? _family),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManualCameraForm extends StatefulWidget {
+  const _ManualCameraForm({required this.family});
+  final String family;
+
+  @override
+  State<_ManualCameraForm> createState() => _ManualCameraFormState();
+}
+
+class _ManualCameraFormState extends State<_ManualCameraForm> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _url = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController();
   final _location = TextEditingController();
-  String _family = cameraFamilies.first.name;
   CameraConnectionType _type = CameraConnectionType.rtsp;
 
   @override
@@ -30,87 +195,20 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
     super.dispose();
   }
 
-  Future<void> _showSetupMethods() async {
-    final method = await showModalBottomSheet<CameraSetupMethod>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: CameraSetupMethod.values.map((method) {
-            final icon = switch (method) {
-              CameraSetupMethod.qr => Icons.qr_code_2,
-              CameraSetupMethod.acoustic => Icons.graphic_eq,
-              CameraSetupMethod.bluetooth => Icons.bluetooth,
-              CameraSetupMethod.accessPoint => Icons.wifi_tethering,
-              CameraSetupMethod.networkDiscovery => Icons.radar,
-              CameraSetupMethod.manual => Icons.edit,
-            };
-            return ListTile(
-              leading: Icon(icon),
-              title: Text(method.label),
-              subtitle: Text(method.description),
-              onTap: () => Navigator.of(context).pop(method),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-
-    if (!mounted || method == null || method == CameraSetupMethod.manual) return;
-
-    final isAcoustic = method == CameraSetupMethod.acoustic;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(method.label),
-        content: Text(
-          isAcoustic
-              ? 'Le mode son / bip-bip est maintenant prévu dans APK All Camera. Pour réellement configurer une caméra par son, il faut connaître le protocole audio ou disposer du SDK du fabricant.'
-              : '${method.description}\n\nLe connecteur spécifique sera utilisé lorsqu’il est disponible pour la famille sélectionnée.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajouter une caméra')),
+      appBar: AppBar(title: const Text('Ajout manuel')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.auto_awesome),
-                title: const Text('Méthode d’installation'),
-                subtitle: const Text('QR code, son bip-bip, Bluetooth, Wi-Fi AP, détection réseau ou manuel'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _showSetupMethods,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Nom de la caméra', border: OutlineInputBorder()),
-              validator: (value) => value == null || value.trim().isEmpty ? 'Nom obligatoire' : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _family,
-              decoration: const InputDecoration(labelText: 'Famille / application d’origine', border: OutlineInputBorder()),
-              items: cameraFamilies.map((family) => DropdownMenuItem(value: family.name, child: Text(family.name))).toList(),
-              onChanged: (value) => setState(() => _family = value ?? _family),
-            ),
+            TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Nom de la caméra'), validator: (v) => v == null || v.trim().isEmpty ? 'Nom obligatoire' : null),
             const SizedBox(height: 12),
             DropdownButtonFormField<CameraConnectionType>(
               value: _type,
-              decoration: const InputDecoration(labelText: 'Type de connexion', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Type de connexion'),
               items: const [
                 DropdownMenuItem(value: CameraConnectionType.rtsp, child: Text('RTSP')),
                 DropdownMenuItem(value: CameraConnectionType.http, child: Text('HTTP vidéo')),
@@ -122,12 +220,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _url,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Adresse du flux',
-                hintText: 'rtsp://192.168.1.50:554/stream1',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Adresse du flux', hintText: 'rtsp://192.168.1.50:554/stream1'),
               validator: (value) {
                 if (_type == CameraConnectionType.proprietary) return null;
                 final uri = Uri.tryParse(value?.trim() ?? '');
@@ -136,26 +229,25 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
               },
             ),
             const SizedBox(height: 12),
-            TextFormField(controller: _username, decoration: const InputDecoration(labelText: 'Utilisateur caméra', border: OutlineInputBorder())),
+            TextFormField(controller: _username, decoration: const InputDecoration(labelText: 'Utilisateur caméra')),
             const SizedBox(height: 12),
-            TextFormField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Mot de passe caméra', border: OutlineInputBorder())),
+            TextFormField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Mot de passe caméra')),
             const SizedBox(height: 12),
-            TextFormField(controller: _location, decoration: const InputDecoration(labelText: 'Lieu (facultatif)', border: OutlineInputBorder())),
+            TextFormField(controller: _location, decoration: const InputDecoration(labelText: 'Lieu (facultatif)')),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () {
                 if (!_formKey.currentState!.validate()) return;
-                final camera = CameraDevice(
+                Navigator.of(context).pop(CameraDevice(
                   id: DateTime.now().microsecondsSinceEpoch.toString(),
                   name: _name.text.trim(),
-                  family: _family,
+                  family: widget.family,
                   streamUrl: _url.text.trim(),
                   connectionType: _type,
                   username: _username.text.trim(),
                   password: _password.text,
                   location: _location.text.trim(),
-                );
-                Navigator.of(context).pop(camera);
+                ));
               },
               icon: const Icon(Icons.add_a_photo),
               label: const Text('Ajouter la caméra'),
@@ -165,4 +257,11 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
       ),
     );
   }
+}
+
+class _MethodData {
+  const _MethodData(this.icon, this.title, this.description);
+  final IconData icon;
+  final String title;
+  final String description;
 }
