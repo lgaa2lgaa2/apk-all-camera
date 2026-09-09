@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/camera.dart';
+import '../models/setup_method.dart';
 import '../services/compatibility_catalog.dart';
 
 class AddCameraScreen extends StatefulWidget {
@@ -29,6 +30,52 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
     super.dispose();
   }
 
+  Future<void> _showSetupMethods() async {
+    final method = await showModalBottomSheet<CameraSetupMethod>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: CameraSetupMethod.values.map((method) {
+            final icon = switch (method) {
+              CameraSetupMethod.qr => Icons.qr_code_2,
+              CameraSetupMethod.acoustic => Icons.graphic_eq,
+              CameraSetupMethod.bluetooth => Icons.bluetooth,
+              CameraSetupMethod.accessPoint => Icons.wifi_tethering,
+              CameraSetupMethod.networkDiscovery => Icons.radar,
+              CameraSetupMethod.manual => Icons.edit,
+            };
+            return ListTile(
+              leading: Icon(icon),
+              title: Text(method.label),
+              subtitle: Text(method.description),
+              onTap: () => Navigator.of(context).pop(method),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+
+    if (!mounted || method == null || method == CameraSetupMethod.manual) return;
+
+    final isAcoustic = method == CameraSetupMethod.acoustic;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(method.label),
+        content: Text(
+          isAcoustic
+              ? 'Le mode son / bip-bip est maintenant prévu dans APK All Camera. Pour réellement configurer une caméra par son, il faut connaître le protocole audio ou disposer du SDK du fabricant.'
+              : '${method.description}\n\nLe connecteur spécifique sera utilisé lorsqu’il est disponible pour la famille sélectionnée.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,6 +85,16 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.auto_awesome),
+                title: const Text('Méthode d’installation'),
+                subtitle: const Text('QR code, son bip-bip, Bluetooth, Wi-Fi AP, détection réseau ou manuel'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _showSetupMethods,
+              ),
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _name,
               decoration: const InputDecoration(labelText: 'Nom de la caméra', border: OutlineInputBorder()),
