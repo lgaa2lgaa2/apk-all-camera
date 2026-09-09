@@ -22,6 +22,8 @@ jobs:
           cache: true
       - name: Create Android/iOS platform files
         run: flutter create --platforms=android,ios --project-name=apk_all_camera .
+      - name: Remove generated sample test
+        run: rm -f test/widget_test.dart
       - name: Ensure Android Internet permission
         run: |
           python3 - <<'PY'
