@@ -1,0 +1,48 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-android-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create Android/iOS platform files
+        run: flutter create --platforms=android,ios --project-name=apk_all_camera .
+      - name: Ensure Android Internet permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          perm='<uses-permission android:name="android.permission.INTERNET" />'
+          if perm not in s:
+              s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    '+perm)
+          p.write_text(s)
+          PY
+      - name: Dependencies
+        run: flutter pub get
+      - name: Tests
+        run: flutter test
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk ../APK-All-Camera.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK-All-Camera
+          path: APK-All-Camera.apk
+          if-no-files-found: error
