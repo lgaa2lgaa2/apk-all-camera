@@ -7,7 +7,7 @@ import 'alerts_screen.dart';
 import 'compatibility_screen.dart';
 import 'distribution_screen.dart';
 import 'mosaic_screen.dart';
-import 'permissions_screen.dart';
+import 'permissions_screen.dart' as dedicated_permissions;
 import 'player_screen.dart';
 import 'sessions_screen.dart';
 import 'settings_screen.dart';
@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 case 'alerts': _open(const AlertsScreen()); break;
                 case 'storage': _open(const StorageScreen()); break;
                 case 'users': _open(const UsersScreen()); break;
-                case 'permissions': _open(const PermissionsScreen()); break;
+                case 'permissions': _open(const dedicated_permissions.PermissionsScreen()); break;
                 case 'sessions': _open(const SessionsScreen()); break;
                 case 'compat': _open(const CompatibilityScreen()); break;
                 case 'settings': _open(const SettingsScreen()); break;
@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'mosaic', child: Text('Mosaïque 2×2')),
+              PopupMenuItem(value: 'mosaic', child: Text('Mosaïque')),
               PopupMenuItem(value: 'alerts', child: Text('Alertes')),
               PopupMenuItem(value: 'storage', child: Text('Stockage')),
               PopupMenuItem(value: 'users', child: Text('Utilisateurs')),
