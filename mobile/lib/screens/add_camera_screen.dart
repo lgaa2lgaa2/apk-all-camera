@@ -41,7 +41,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                 Text(
                   results.isEmpty
                       ? 'Aucune caméra compatible trouvée sur le réseau local. Vérifie que le téléphone et la caméra sont sur le même Wi-Fi, puis réessaie. Tu peux aussi utiliser Ajout manuel.'
-                      : '${results.length} appareil(s) trouvé(s). Un flux n’est prérempli que lorsqu’il a été confirmé par le test RTSP.',
+                      : '${results.length} appareil(s) trouvé(s). Choisis une caméra pour continuer.',
                   style: const TextStyle(color: Color(0xFF91A4BB)),
                 ),
                 const SizedBox(height: 14),
@@ -61,10 +61,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                         return ListTile(
                           tileColor: const Color(0xFF0B1929),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          leading: Icon(
-                            camera.hasValidatedStream ? Icons.verified : Icons.videocam_outlined,
-                            color: camera.hasValidatedStream ? const Color(0xFF4FD6FF) : const Color(0xFF91A4BB),
-                          ),
+                          leading: const Icon(Icons.videocam, color: Color(0xFF4FD6FF)),
                           title: Text(camera.host),
                           subtitle: Text('Ports: ${camera.openPorts.join(', ')} • $status'),
                           trailing: const Icon(Icons.chevron_right),
@@ -193,7 +190,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _family,
+            initialValue: _family,
             decoration: const InputDecoration(labelText: 'Famille / application d’origine'),
             items: cameraFamilies.map((family) => DropdownMenuItem(value: family.name, child: Text(family.name))).toList(),
             onChanged: (value) => setState(() => _family = value ?? _family),
@@ -275,7 +272,7 @@ class _ManualCameraFormState extends State<_ManualCameraForm> {
             TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Nom de la caméra'), validator: (v) => v == null || v.trim().isEmpty ? 'Nom obligatoire' : null),
             const SizedBox(height: 12),
             DropdownButtonFormField<CameraConnectionType>(
-              value: _type,
+              initialValue: _type,
               decoration: const InputDecoration(labelText: 'Type de connexion'),
               items: const [
                 DropdownMenuItem(value: CameraConnectionType.rtsp, child: Text('RTSP')),
