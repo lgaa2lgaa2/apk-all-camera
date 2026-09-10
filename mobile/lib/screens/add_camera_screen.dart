@@ -1,10 +1,26 @@
 import 'package:flutter/material.dart';
 import '../models/camera.dart';
+import '../models/discovery_compatibility.dart';
 import '../services/compatibility_catalog.dart';
 import '../services/network_discovery_service.dart';
 
 class AddCameraScreen extends StatefulWidget {
   const AddCameraScreen({super.key});
+
+  static String compatibilityLabel(DiscoveryCompatibilityStatus status) {
+    switch (status) {
+      case DiscoveryCompatibilityStatus.compatible:
+        return 'Compatible';
+      case DiscoveryCompatibilityStatus.authenticationRequired:
+        return 'Authentification requise';
+      case DiscoveryCompatibilityStatus.partial:
+        return 'Partiel';
+      case DiscoveryCompatibilityStatus.proprietaryUnsupported:
+        return 'Propriétaire/non pris en charge';
+      case DiscoveryCompatibilityStatus.unavailable:
+        return 'Indisponible';
+    }
+  }
 
   @override
   State<AddCameraScreen> createState() => _AddCameraScreenState();
@@ -53,11 +69,12 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final camera = results[index];
-                        final status = camera.hasValidatedStream
-                            ? 'Flux RTSP validé'
+                        final compatibility = camera.hasValidatedStream
+                            ? DiscoveryCompatibilityStatus.compatible
                             : camera.hasRtspServer
-                                ? 'Serveur RTSP détecté — flux non confirmé'
-                                : 'Services caméra détectés — RTSP non détecté';
+                                ? DiscoveryCompatibilityStatus.partial
+                                : DiscoveryCompatibilityStatus.unavailable;
+                        final status = AddCameraScreen.compatibilityLabel(compatibility);
                         return ListTile(
                           tileColor: const Color(0xFF0B1929),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
