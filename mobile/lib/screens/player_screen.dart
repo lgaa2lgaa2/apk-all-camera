@@ -44,8 +44,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (!kIsWeb) {
       try {
         _controller?.dispose();
-      } on LateError {
-        // Widget tests never initialize the native VLC platform view.
+      } catch (_) {
+        // Widget tests do not initialize the native VLC platform view.
       }
     }
     super.dispose();
@@ -185,7 +185,7 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
+    return OutlinedButton.icon(
       onPressed: enabled ? onTap : null,
       icon: Icon(icon),
       label: Text(label),
