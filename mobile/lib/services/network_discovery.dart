@@ -23,7 +23,7 @@ class NetworkDiscovery {
 
   static bool isPrivateIpv4(String address) {
     final parts = address.split('.').map(int.tryParse).toList();
-    if (parts.length != 4 || parts.any((p) => p == null || p! < 0 || p > 255)) {
+    if (parts.length != 4 || parts.any((p) => p == null || p < 0 || p > 255)) {
       return false;
     }
     final a = parts[0]!;
@@ -70,44 +70,44 @@ class NetworkDiscovery {
   }
 
   Future<List<DiscoveredCamera>> scanLocalSubnet({
-    Duration timeout = const Duration(milliseconds: 220),
-    int firstHost = 1,
-    int lastHost = 254,
+    Duration timeout = const Duration(milliseconds: 250),
+    int concurrency = 32,
   }) async {
     final local = await localIpv4();
-    if (local == null) return const <DiscoveredCamera>[];
+    if (local == null) return const [];
     final parts = local.split('.');
-    if (parts.length != 4) return const <DiscoveredCamera>[];
+    if (parts.length != 4) return const [];
     final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+    final queue = List<int>.generate(254, (index) => index + 1);
     final results = <DiscoveredCamera>[];
+    var cursor = 0;
 
-    const batchSize = 24;
-    for (int start = firstHost; start <= lastHost; start += batchSize) {
-      final end = (start + batchSize - 1) > lastHost ? lastHost : start + batchSize - 1;
-      final hosts = <Future<DiscoveredCamera?>>[];
-      for (int i = start; i <= end; i++) {
-        final host = '$prefix.$i';
+    Future<void> worker() async {
+      while (true) {
+        final index = cursor++;
+        if (index >= queue.length) return;
+        final host = '$prefix.${queue[index]}';
         if (host == local) continue;
-        hosts.add(_probeHost(host, timeout));
-      }
-      final batch = await Future.wait(hosts);
-      results.addAll(batch.whereType<DiscoveredCamera>());
-    }
-    return results;
-  }
 
-  Future<DiscoveredCamera?> _probeHost(String host, Duration timeout) async {
-    final open = <int>[];
-    final checks = await Future.wait(commonPorts.map((port) async => MapEntry(port, await isPortOpen(host, port, timeout: timeout))));
-    for (final check in checks) {
-      if (check.value) open.add(check.key);
+        final openPorts = <int>[];
+        for (final port in commonPorts) {
+          if (await isPortOpen(host, port, timeout: timeout)) {
+            openPorts.add(port);
+          }
+        }
+        if (openPorts.isEmpty) continue;
+        results.add(
+          DiscoveredCamera(
+            host: host,
+            openPorts: openPorts,
+            rtspCandidates: openPorts.contains(554) ? rtspCandidates(host, 554) : const [],
+          ),
+        );
+      }
     }
-    if (open.isEmpty) return null;
-    final rtspPort = open.contains(554) ? 554 : null;
-    return DiscoveredCamera(
-      host: host,
-      openPorts: open,
-      rtspCandidates: rtspPort == null ? const <String>[] : rtspCandidates(host, rtspPort),
-    );
+
+    await Future.wait(List<Future<void>>.generate(concurrency, (_) => worker()));
+    results.sort((a, b) => a.host.compareTo(b.host));
+    return results;
   }
 }
