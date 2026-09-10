@@ -14,12 +14,13 @@ void main() {
     );
 
     await tester.pumpWidget(const MaterialApp(home: PlayerScreen(camera: camera)));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Écouter'), findsOneWidget);
-    expect(find.text('Photo'), findsOneWidget);
-    expect(find.text('Plein écran'), findsOneWidget);
-    expect(find.text('Parler'), findsOneWidget);
-    expect(find.text('REC'), findsOneWidget);
-    expect(find.text('PTZ'), findsOneWidget);
+    final scrollable = find.byType(Scrollable).first;
+
+    for (final label in ['Écouter', 'Photo', 'Plein écran', 'Parler', 'REC', 'PTZ']) {
+      await tester.scrollUntilVisible(find.text(label), 200, scrollable: scrollable);
+      expect(find.text(label), findsOneWidget);
+    }
   });
 }
