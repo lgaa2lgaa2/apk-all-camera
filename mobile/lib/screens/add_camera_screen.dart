@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/camera.dart';
 import '../models/discovery_compatibility.dart';
 import '../services/compatibility_catalog.dart';
-import '../services/network_discovery_service.dart';
+import '../services/smart_discovery_service.dart';
 
 class AddCameraScreen extends StatefulWidget {
   const AddCameraScreen({super.key});
@@ -22,19 +22,23 @@ class AddCameraScreen extends StatefulWidget {
     }
   }
 
+  static String prefillStreamFor(DiscoveryCompatibilityResult result) {
+    return result.canPrefillStream ? result.validatedStream! : '';
+  }
+
   @override
   State<AddCameraScreen> createState() => _AddCameraScreenState();
 }
 
 class _AddCameraScreenState extends State<AddCameraScreen> {
-  final _discovery = NetworkDiscoveryService();
+  final _discovery = SmartDiscoveryService();
   String _family = cameraFamilies.first.name;
   bool _scanning = false;
 
   Future<void> _scanNetwork() async {
     if (_scanning) return;
     setState(() => _scanning = true);
-    final results = await _discovery.scanLocalSubnet();
+    final results = await _discovery.discover();
     if (!mounted) return;
     setState(() => _scanning = false);
 
@@ -68,28 +72,27 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                       itemCount: results.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
-                        final camera = results[index];
-                        final compatibility = camera.hasValidatedStream
-                            ? DiscoveryCompatibilityStatus.compatible
-                            : camera.hasRtspServer
-                                ? DiscoveryCompatibilityStatus.partial
-                                : DiscoveryCompatibilityStatus.unavailable;
-                        final status = AddCameraScreen.compatibilityLabel(compatibility);
+                        final result = results[index];
+                        final status = AddCameraScreen.compatibilityLabel(result.status);
+                        final services = result.detectedServices.isEmpty
+                            ? 'Aucun service confirmé'
+                            : result.detectedServices.join(', ');
                         return ListTile(
                           tileColor: const Color(0xFF0B1929),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           leading: const Icon(Icons.videocam, color: Color(0xFF4FD6FF)),
-                          title: Text(camera.host),
-                          subtitle: Text('Ports: ${camera.openPorts.join(', ')} • $status'),
+                          title: Text(result.host),
+                          subtitle: Text('$services • $status\n${result.explanation}'),
+                          isThreeLine: true,
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.of(this.context).push(MaterialPageRoute(
                               builder: (_) => _ManualCameraForm(
                                 family: _family,
-                                initialHost: camera.host,
-                                initialUrl: camera.bestStream,
-                                streamValidated: camera.hasValidatedStream,
+                                initialHost: result.host,
+                                initialUrl: AddCameraScreen.prefillStreamFor(result),
+                                streamValidated: result.canPrefillStream,
                               ),
                             ));
                           },
