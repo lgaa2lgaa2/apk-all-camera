@@ -1,4 +1,5 @@
 import 'package:apk_all_camera/models/discovery_compatibility.dart';
+import 'package:apk_all_camera/services/network_discovery_service.dart';
 import 'package:apk_all_camera/services/smart_discovery_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,5 +46,20 @@ void main() {
     );
 
     expect(result.status, DiscoveryCompatibilityStatus.unavailable);
+  });
+
+  test('maps discovered camera into smart discovery evidence', () {
+    final camera = DiscoveredCamera(
+      host: '192.168.1.30',
+      openPorts: <int>[80, 554],
+      streamCandidates: <String>['rtsp://192.168.1.30:554/stream1'],
+      validatedStream: 'rtsp://192.168.1.30:554/stream1',
+    );
+
+    final result = SmartDiscoveryService.fromDiscoveredCamera(camera);
+
+    expect(result.status, DiscoveryCompatibilityStatus.compatible);
+    expect(result.detectedServices, containsAll(<String>['HTTP', 'RTSP']));
+    expect(result.validatedStream, camera.validatedStream);
   });
 }
