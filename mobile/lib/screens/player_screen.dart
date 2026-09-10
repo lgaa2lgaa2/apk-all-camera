@@ -73,9 +73,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final controller = _controller;
     if (controller == null) return;
     try {
-      final Uint8List snapshot = await controller.takeSnapshot();
+      final Uint8List? snapshot = await controller.takeSnapshot();
       if (!mounted) return;
-      final message = snapshot.isEmpty ? 'Capture impossible sur ce flux.' : 'Photo capturée.';
+      final message = snapshot == null || snapshot.isEmpty ? 'Capture impossible sur ce flux.' : 'Photo capturée.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
       if (!mounted) return;
@@ -91,7 +91,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         await controller.stopRecording();
         if (mounted) setState(() => _recording = false);
       } else {
-        final started = await controller.startRecording('/storage/emulated/0/Download');
+        final bool started = (await controller.startRecording('/storage/emulated/0/Download')) ?? false;
         if (!mounted) return;
         setState(() => _recording = started);
         if (!started) {
