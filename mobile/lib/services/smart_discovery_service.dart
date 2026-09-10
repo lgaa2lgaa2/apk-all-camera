@@ -125,7 +125,6 @@ class SmartDiscoveryService {
 
       if (onvifEvidence.isNotEmpty) {
         services.add('ONVIF');
-        candidateEndpoint ??= onvifEvidence.first.xaddr;
         for (final candidate in OnvifDiscovery.fallbackRtspCandidates(host)) {
           if (!candidates.contains(candidate)) candidates.add(candidate);
         }
@@ -141,12 +140,15 @@ class SmartDiscoveryService {
           }
           if (validation.status == RtspValidationStatus.authenticationRequired) {
             authenticationRequired = true;
-            candidateEndpoint ??= validation.url;
+            candidateEndpoint = validation.url;
+            break;
           }
         }
       } else {
         candidateEndpoint = validatedStream;
       }
+
+      candidateEndpoint ??= onvifEvidence.isEmpty ? null : onvifEvidence.first.xaddr;
 
       results.add(
         classifyHost(
