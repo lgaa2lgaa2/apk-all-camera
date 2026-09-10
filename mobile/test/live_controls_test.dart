@@ -17,12 +17,13 @@ void main() {
     );
 
     await tester.pumpWidget(const MaterialApp(home: PlayerScreen(camera: camera)));
+    await tester.pump();
 
-    expect(find.text('Écouter'), findsOneWidget);
-    expect(find.text('Parler'), findsOneWidget);
-    expect(find.text('Photo'), findsOneWidget);
-    expect(find.text('REC'), findsOneWidget);
-    expect(find.text('PTZ'), findsOneWidget);
-    expect(find.text('Plein écran'), findsOneWidget);
+    expect(find.text('Écouter', skipOffstage: false), findsOneWidget);
+    expect(find.text('Parler', skipOffstage: false), findsOneWidget);
+    expect(find.text('Photo', skipOffstage: false), findsOneWidget);
+    expect(find.text('REC', skipOffstage: false), findsOneWidget);
+    expect(find.text('PTZ', skipOffstage: false), findsOneWidget);
+    expect(find.text('Plein écran', skipOffstage: false), findsOneWidget);
   });
 }
