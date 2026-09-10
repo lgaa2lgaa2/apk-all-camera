@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import '../models/camera.dart';
 import '../services/camera_registry.dart';
 import 'add_camera_screen.dart';
+import 'admin_screen.dart';
 import 'alerts_screen.dart';
 import 'compatibility_screen.dart';
+import 'distribution_screen.dart';
+import 'mosaic_screen.dart';
+import 'permissions_screen.dart';
 import 'player_screen.dart';
 import 'sessions_screen.dart';
+import 'settings_screen.dart';
 import 'storage_screen.dart';
+import 'system_status_screen.dart';
 import 'users_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -64,19 +70,31 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.grid_view_rounded),
             onSelected: (value) {
               switch (value) {
+                case 'mosaic': _open(MosaicScreen(cameras: _cameras)); break;
                 case 'alerts': _open(const AlertsScreen()); break;
                 case 'storage': _open(const StorageScreen()); break;
                 case 'users': _open(const UsersScreen()); break;
+                case 'permissions': _open(const PermissionsScreen()); break;
                 case 'sessions': _open(const SessionsScreen()); break;
                 case 'compat': _open(const CompatibilityScreen()); break;
+                case 'settings': _open(const SettingsScreen()); break;
+                case 'admin': _open(const AdminScreen()); break;
+                case 'system': _open(const SystemStatusScreen()); break;
+                case 'distribution': _open(const DistributionScreen()); break;
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'mosaic', child: Text('Mosaïque 2×2')),
               PopupMenuItem(value: 'alerts', child: Text('Alertes')),
               PopupMenuItem(value: 'storage', child: Text('Stockage')),
               PopupMenuItem(value: 'users', child: Text('Utilisateurs')),
+              PopupMenuItem(value: 'permissions', child: Text('Permissions')),
               PopupMenuItem(value: 'sessions', child: Text('Sessions')),
               PopupMenuItem(value: 'compat', child: Text('Compatibilité')),
+              PopupMenuItem(value: 'settings', child: Text('Réglages')),
+              PopupMenuItem(value: 'admin', child: Text('Panel Admin')),
+              PopupMenuItem(value: 'system', child: Text('État système')),
+              PopupMenuItem(value: 'distribution', child: Text('Distribution')),
             ],
           ),
         ],
