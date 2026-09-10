@@ -18,7 +18,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _muted = false;
   bool _recording = false;
   bool _fullscreen = false;
-  bool _vlcViewInitialized = false;
 
   bool get _nativePlayerAvailable => !kIsWeb;
 
@@ -42,8 +41,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
-    if (_vlcViewInitialized) {
-      _controller?.dispose();
+    if (!kIsWeb) {
+      try {
+        _controller?.dispose();
+      } on LateError {
+        // Widget tests never initialize the native VLC platform view.
+      }
     }
     super.dispose();
   }
@@ -65,7 +68,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(snapshot == null || snapshot.isEmpty ? 'Capture indisponible.' : 'Photo capturée.')),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Capture indisponible.')));
     }
@@ -140,9 +143,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       controller: controller,
                       aspectRatio: 16 / 9,
                       placeholder: const Center(child: CircularProgressIndicator()),
-                      onInit: () {
-                        _vlcViewInitialized = true;
-                      },
                     ),
             ),
           ),
@@ -185,13 +185,10 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: FilledButton.tonalIcon(
-        onPressed: enabled ? onTap : null,
-        icon: Icon(icon),
-        label: Text(label),
-      ),
+    return FilledButton.tonalIcon(
+      onPressed: enabled ? onTap : null,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }
