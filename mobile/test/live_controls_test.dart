@@ -16,7 +16,11 @@ void main() {
       location: 'Salon',
     );
 
-    await tester.pumpWidget(const MaterialApp(home: PlayerScreen(camera: camera)));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PlayerScreen(camera: camera, enableNativePlayer: false),
+      ),
+    );
     await tester.pump();
 
     expect(find.text('Écouter', skipOffstage: false), findsOneWidget);
