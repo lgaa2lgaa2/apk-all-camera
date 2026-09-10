@@ -1,22 +1,34 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'stream_validator.dart';
+
 class DiscoveredCamera {
   const DiscoveredCamera({
     required this.host,
     required this.openPorts,
     required this.streamCandidates,
+    this.validatedStream,
   });
 
   final String host;
   final List<int> openPorts;
   final List<String> streamCandidates;
+  final String? validatedStream;
 
-  String get bestStream => streamCandidates.isNotEmpty ? streamCandidates.first : '';
+  bool get hasValidatedStream => validatedStream != null && validatedStream!.isNotEmpty;
+  bool get hasRtspServer => openPorts.contains(554);
+
+  String get bestStream => validatedStream ?? '';
 }
 
 class NetworkDiscoveryService {
+  NetworkDiscoveryService({StreamValidator? streamValidator})
+      : _streamValidator = streamValidator ?? const StreamValidator();
+
   static const List<int> defaultPorts = <int>[80, 554, 8000, 8080, 8899];
+
+  final StreamValidator _streamValidator;
 
   List<int> get commonPorts => defaultPorts;
 
@@ -57,7 +69,18 @@ class NetworkDiscoveryService {
         if (open.isEmpty) continue;
 
         final streams = open.contains(554) ? buildRtspCandidates(host) : const <String>[];
-        results.add(DiscoveredCamera(host: host, openPorts: open, streamCandidates: streams));
+        final validatedStream = streams.isEmpty
+            ? null
+            : await _streamValidator.firstReachable(streams);
+
+        results.add(
+          DiscoveredCamera(
+            host: host,
+            openPorts: open,
+            streamCandidates: streams,
+            validatedStream: validatedStream,
+          ),
+        );
       }
     }
 
