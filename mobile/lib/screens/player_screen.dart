@@ -5,8 +5,14 @@ import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import '../models/camera.dart';
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key, required this.camera});
+  const PlayerScreen({
+    super.key,
+    required this.camera,
+    this.enableNativePlayer = true,
+  });
+
   final CameraDevice camera;
+  final bool enableNativePlayer;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -19,7 +25,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _recording = false;
   bool _fullscreen = false;
 
-  bool get _nativePlayerAvailable => !kIsWeb;
+  bool get _nativePlayerAvailable => !kIsWeb && widget.enableNativePlayer;
 
   @override
   void initState() {
@@ -41,13 +47,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
-    if (!kIsWeb) {
-      try {
-        _controller?.dispose();
-      } catch (_) {
-        // Widget tests do not initialize the native VLC platform view.
-      }
-    }
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -118,7 +118,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final available = controller != null;
+    final hasConfiguredStream = widget.camera.streamUrl.isNotEmpty;
+    final available = hasConfiguredStream && (controller != null || !widget.enableNativePlayer);
     return Scaffold(
       appBar: AppBar(title: Text(widget.camera.name)),
       body: ListView(
@@ -135,7 +136,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: controller == null
                   ? Center(
                       child: Text(
-                        widget.camera.streamUrl.isEmpty ? 'Aucun flux configuré' : (_error ?? 'Lecteur indisponible'),
+                        hasConfiguredStream
+                            ? (widget.enableNativePlayer ? (_error ?? 'Lecteur indisponible') : 'Aperçu vidéo désactivé pour le test')
+                            : 'Aucun flux configuré',
                         style: const TextStyle(color: Color(0xFF91A4BB)),
                       ),
                     )
