@@ -6,9 +6,15 @@ class StreamValidator {
   const StreamValidator();
 
   static bool isRtspEndpointResponse(String response) {
-    final firstLine = const LineSplitter().convert(response).firstOrNull ?? '';
+    final lines = const LineSplitter().convert(response);
+    if (lines.isEmpty) return false;
+    final firstLine = lines.first.trim();
     if (!firstLine.startsWith('RTSP/')) return false;
-    return firstLine.contains(' 200 ') || firstLine.contains(' 401 ');
+
+    final match = RegExp(r'^RTSP/\d+(?:\.\d+)?\s+(\d{3})\b').firstMatch(firstLine);
+    if (match == null) return false;
+    final statusCode = int.tryParse(match.group(1) ?? '');
+    return statusCode == 200 || statusCode == 401;
   }
 
   Future<bool> canReachRtsp(
@@ -40,13 +46,15 @@ class StreamValidator {
         cancelOnError: true,
       );
 
-      final target = uri.path.isEmpty ? '/' : uri.path;
-      final request = StringBuffer()
-        ..writeln('OPTIONS rtsp://${uri.host}:$port$target RTSP/1.0\r')
-        ..writeln('CSeq: 1\r')
-        ..writeln('User-Agent: APK-All-Camera\r')
-        ..writeln('\r');
-      socket.write(request.toString());
+      final normalizedPath = uri.path.isEmpty ? '/' : uri.path;
+      final query = uri.hasQuery ? '?${uri.query}' : '';
+      final authority = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+      final request = 'OPTIONS rtsp://$authority$normalizedPath$query RTSP/1.0\r\n'
+          'CSeq: 1\r\n'
+          'User-Agent: APK-All-Camera\r\n'
+          '\r\n';
+
+      socket.write(request);
       await socket.flush();
       return await completer.future.timeout(timeout, onTimeout: () => false);
     } catch (_) {
@@ -65,8 +73,4 @@ class StreamValidator {
     }
     return null;
   }
-}
-
-extension _FirstOrNull<T> on List<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }
