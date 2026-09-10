@@ -61,6 +61,37 @@ class StreamValidator {
         : RtspValidationStatus.unavailable;
   }
 
+  static int? _contentLengthFromHeaders(String response) {
+    final headerEnd = response.indexOf('\r\n\r\n');
+    if (headerEnd < 0) return null;
+    final headerBlock = response.substring(0, headerEnd);
+    final lines = const LineSplitter().convert(headerBlock);
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      if (!lower.startsWith('content-length:')) continue;
+      final value = line.substring(line.indexOf(':') + 1).trim();
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  static bool _hasCompleteDescribeResponse(String response) {
+    final headerEnd = response.indexOf('\r\n\r\n');
+    if (headerEnd < 0) return false;
+
+    final lines = const LineSplitter().convert(response.substring(0, headerEnd));
+    if (lines.isEmpty) return true;
+    final match = RegExp(r'^RTSP/\d+(?:\.\d+)?\s+(\d{3})\b').firstMatch(lines.first.trim());
+    final statusCode = int.tryParse(match?.group(1) ?? '');
+
+    if (statusCode != 200) return true;
+
+    final contentLength = _contentLengthFromHeaders(response);
+    if (contentLength == null || contentLength <= 0) return true;
+    final bodyLength = utf8.encode(response.substring(headerEnd + 4)).length;
+    return bodyLength >= contentLength;
+  }
+
   Future<RtspValidationResult> validateRtspResource(
     String url, {
     Duration timeout = const Duration(milliseconds: 900),
@@ -90,7 +121,8 @@ class StreamValidator {
       subscription = socket.listen(
         (data) {
           response.write(utf8.decode(data, allowMalformed: true));
-          if (response.toString().contains('\r\n\r\n')) {
+          final current = response.toString();
+          if (_hasCompleteDescribeResponse(current)) {
             completeFromResponse();
           }
         },
