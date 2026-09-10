@@ -125,6 +125,14 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _scanning ? null : _scanNetwork,
+            icon: _scanning
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.radar),
+            label: Text(_scanning ? 'Recherche en cours…' : 'Scanner les caméras'),
+          ),
+          const SizedBox(height: 16),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -175,14 +183,6 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                 ),
               );
             },
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: _scanning ? null : _scanNetwork,
-            icon: _scanning
-                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.radar),
-            label: Text(_scanning ? 'Recherche en cours…' : 'Scanner les caméras'),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
