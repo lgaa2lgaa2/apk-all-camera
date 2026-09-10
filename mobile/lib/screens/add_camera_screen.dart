@@ -41,7 +41,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                 Text(
                   results.isEmpty
                       ? 'Aucune caméra compatible trouvée sur le réseau local. Vérifie que le téléphone et la caméra sont sur le même Wi-Fi, puis réessaie. Tu peux aussi utiliser Ajout manuel.'
-                      : '${results.length} appareil(s) trouvé(s). Choisis une caméra pour préremplir automatiquement le flux RTSP.',
+                      : '${results.length} appareil(s) trouvé(s). Un flux n’est prérempli que lorsqu’il a été confirmé par le test RTSP.',
                   style: const TextStyle(color: Color(0xFF91A4BB)),
                 ),
                 const SizedBox(height: 14),
@@ -53,14 +53,20 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final camera = results[index];
+                        final status = camera.hasValidatedStream
+                            ? 'Flux RTSP validé'
+                            : camera.hasRtspServer
+                                ? 'Serveur RTSP détecté — flux non confirmé'
+                                : 'Services caméra détectés — RTSP non détecté';
                         return ListTile(
                           tileColor: const Color(0xFF0B1929),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          leading: const Icon(Icons.videocam, color: Color(0xFF4FD6FF)),
-                          title: Text(camera.host),
-                          subtitle: Text(
-                            'Ports: ${camera.openPorts.join(', ')}${camera.streamCandidates.isEmpty ? ' • flux RTSP non confirmé' : ' • RTSP détecté'}',
+                          leading: Icon(
+                            camera.hasValidatedStream ? Icons.verified : Icons.videocam_outlined,
+                            color: camera.hasValidatedStream ? const Color(0xFF4FD6FF) : const Color(0xFF91A4BB),
                           ),
+                          title: Text(camera.host),
+                          subtitle: Text('Ports: ${camera.openPorts.join(', ')} • $status'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.pop(context);
@@ -69,6 +75,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
                                 family: _family,
                                 initialHost: camera.host,
                                 initialUrl: camera.bestStream,
+                                streamValidated: camera.hasValidatedStream,
                               ),
                             ));
                           },
@@ -198,10 +205,17 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
 }
 
 class _ManualCameraForm extends StatefulWidget {
-  const _ManualCameraForm({required this.family, this.initialHost = '', this.initialUrl = ''});
+  const _ManualCameraForm({
+    required this.family,
+    this.initialHost = '',
+    this.initialUrl = '',
+    this.streamValidated = false,
+  });
+
   final String family;
   final String initialHost;
   final String initialUrl;
+  final bool streamValidated;
 
   @override
   State<_ManualCameraForm> createState() => _ManualCameraFormState();
@@ -236,7 +250,7 @@ class _ManualCameraFormState extends State<_ManualCameraForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.initialUrl.isEmpty ? 'Ajout manuel' : 'Caméra détectée')),
+      appBar: AppBar(title: Text(widget.initialHost.isEmpty ? 'Ajout manuel' : 'Caméra détectée')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -251,7 +265,12 @@ class _ManualCameraFormState extends State<_ManualCameraForm> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFF203751)),
                 ),
-                child: Text('Détectée automatiquement sur ${widget.initialHost}', style: const TextStyle(color: Color(0xFF4FD6FF))),
+                child: Text(
+                  widget.streamValidated
+                      ? 'Flux RTSP validé automatiquement sur ${widget.initialHost}'
+                      : 'Caméra détectée sur ${widget.initialHost}, mais aucun flux RTSP n’a encore été confirmé. Entre l’URL ou les identifiants si nécessaire.',
+                  style: TextStyle(color: widget.streamValidated ? const Color(0xFF4FD6FF) : const Color(0xFF91A4BB)),
+                ),
               ),
             TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Nom de la caméra'), validator: (v) => v == null || v.trim().isEmpty ? 'Nom obligatoire' : null),
             const SizedBox(height: 12),
