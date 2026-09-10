@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
+import 'widgets/app_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,12 +15,9 @@ class AllCameraApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'APK All Camera',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-        inputDecorationTheme: const InputDecorationTheme(filled: true),
-      ),
-      home: const HomeScreen(),
+      themeMode: ThemeMode.dark,
+      darkTheme: AppTheme.dark(),
+      home: const AppShell(),
     );
   }
 }

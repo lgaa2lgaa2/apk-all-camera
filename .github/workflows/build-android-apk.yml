@@ -3,7 +3,9 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feature/premium-ui-auto-discovery
     paths:
       - 'mobile/**'
       - '.github/workflows/build-android-apk.yml'
@@ -37,6 +39,8 @@ jobs:
           PY
       - name: Dependencies
         run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
       - name: Tests
         run: flutter test
       - name: Build release APK
