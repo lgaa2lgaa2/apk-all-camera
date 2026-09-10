@@ -18,6 +18,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _muted = false;
   bool _recording = false;
   bool _fullscreen = false;
+  bool _vlcViewInitialized = false;
 
   bool get _nativePlayerAvailable => !kIsWeb;
 
@@ -41,7 +42,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
-    _controller?.dispose();
+    if (_vlcViewInitialized) {
+      _controller?.dispose();
+    }
     super.dispose();
   }
 
@@ -120,41 +123,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
         children: [
           AspectRatio(
             aspectRatio: 16 / 9,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                color: Colors.black,
-                child: available
-                    ? VlcPlayer(
-                        controller: controller,
-                        aspectRatio: 16 / 9,
-                        placeholder: const Center(child: CircularProgressIndicator()),
-                      )
-                    : Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Text(
-                            _error ?? (_nativePlayerAvailable ? 'Flux vidéo indisponible.' : 'Lecteur vidéo natif indisponible dans cet environnement.'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF08111F),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFF203751)),
               ),
+              child: controller == null
+                  ? Center(
+                      child: Text(
+                        widget.camera.streamUrl.isEmpty ? 'Aucun flux configuré' : (_error ?? 'Lecteur indisponible'),
+                        style: const TextStyle(color: Color(0xFF91A4BB)),
+                      ),
+                    )
+                  : VlcPlayer(
+                      controller: controller,
+                      aspectRatio: 16 / 9,
+                      placeholder: const Center(child: CircularProgressIndicator()),
+                      onInit: () {
+                        _vlcViewInitialized = true;
+                      },
+                    ),
             ),
           ),
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: available ? Colors.green.withValues(alpha: 0.18) : Colors.red.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(available ? 'LIVE' : 'INDISPONIBLE'),
-              ),
-              const Spacer(),
-              Text(widget.camera.location),
+              Chip(label: Text(available ? 'LIVE' : 'INDISPONIBLE')),
+              Chip(label: Text(widget.camera.family)),
+              if (widget.camera.location.isNotEmpty) Chip(label: Text(widget.camera.location)),
             ],
           ),
           const SizedBox(height: 16),
@@ -162,12 +161,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _ControlButton(icon: _muted ? Icons.volume_off : Icons.volume_up, label: 'Écouter', onPressed: available ? _toggleMute : null),
-              _ControlButton(icon: Icons.camera_alt, label: 'Photo', onPressed: available ? _snapshot : null),
-              _ControlButton(icon: Icons.fullscreen, label: 'Plein écran', onPressed: available ? _toggleFullscreen : null),
-              _ControlButton(icon: Icons.mic, label: 'Parler', onPressed: available ? () => _unsupported('Parler') : null),
-              _ControlButton(icon: _recording ? Icons.stop_circle : Icons.fiber_manual_record, label: 'REC', onPressed: available ? _toggleRecording : null),
-              _ControlButton(icon: Icons.control_camera, label: 'PTZ', onPressed: available ? () => _unsupported('PTZ') : null),
+              _ControlButton(icon: _muted ? Icons.volume_off : Icons.volume_up, label: 'Écouter', enabled: available, onTap: _toggleMute),
+              _ControlButton(icon: Icons.mic, label: 'Parler', enabled: false, onTap: () => _unsupported('Parler')),
+              _ControlButton(icon: Icons.photo_camera, label: 'Photo', enabled: available, onTap: _snapshot),
+              _ControlButton(icon: _recording ? Icons.stop_circle : Icons.fiber_manual_record, label: 'REC', enabled: available, onTap: _toggleRecording),
+              _ControlButton(icon: Icons.control_camera, label: 'PTZ', enabled: false, onTap: () => _unsupported('PTZ')),
+              _ControlButton(icon: Icons.fullscreen, label: 'Plein écran', enabled: available, onTap: _toggleFullscreen),
             ],
           ),
         ],
@@ -177,18 +176,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
 }
 
 class _ControlButton extends StatelessWidget {
-  const _ControlButton({required this.icon, required this.label, required this.onPressed});
+  const _ControlButton({required this.icon, required this.label, required this.enabled, required this.onTap});
 
   final IconData icon;
   final String label;
-  final VoidCallback? onPressed;
+  final bool enabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(label),
+    return SizedBox(
+      width: 150,
+      child: FilledButton.tonalIcon(
+        onPressed: enabled ? onTap : null,
+        icon: Icon(icon),
+        label: Text(label),
+      ),
     );
   }
 }
