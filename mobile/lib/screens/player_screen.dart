@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,65 +19,52 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _recording = false;
   bool _fullscreen = false;
 
-  bool get _isWidgetTest => kDebugMode && WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
-  bool get _supportsNativePlayerControls => _controller != null && !_isWidgetTest && _error == null;
+  bool get _nativePlayerAvailable => !kIsWeb;
 
   @override
   void initState() {
     super.initState();
-    final uri = widget.camera.authenticatedUri();
-    if (uri == null || uri.scheme.isEmpty) {
-      _error = 'Adresse de flux invalide.';
-      return;
+    if (_nativePlayerAvailable && widget.camera.streamUrl.isNotEmpty) {
+      final uri = widget.camera.authenticatedUri;
+      _controller = VlcPlayerController.network(
+        uri.toString(),
+        hwAcc: HwAcc.auto,
+        autoPlay: true,
+        options: VlcPlayerOptions(),
+      );
     }
-    if (widget.camera.connectionType == CameraConnectionType.proprietary) {
-      _error = 'Cette caméra utilise un protocole propriétaire. Un connecteur/SDK fabricant est nécessaire.';
-      return;
-    }
-    if (_isWidgetTest) return;
-
-    _controller = VlcPlayerController.network(
-      uri.toString(),
-      hwAcc: HwAcc.auto,
-      autoPlay: true,
-      options: VlcPlayerOptions(
-        advanced: VlcAdvancedOptions([VlcAdvancedOptions.networkCaching(500)]),
-        rtp: VlcRtpOptions([VlcRtpOptions.rtpOverRtsp(true)]),
-      ),
-    );
   }
 
   @override
   void dispose() {
-    if (!_isWidgetTest) {
-      _controller?.dispose();
-      if (_fullscreen) {
-        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      }
+    if (_fullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
+    _controller?.dispose();
     super.dispose();
   }
 
   Future<void> _toggleMute() async {
     final controller = _controller;
     if (controller == null) return;
-    final nextMuted = !_muted;
-    await controller.setVolume(nextMuted ? 0 : 100);
-    if (mounted) setState(() => _muted = nextMuted);
+    final next = !_muted;
+    await controller.setVolume(next ? 0 : 100);
+    if (mounted) setState(() => _muted = next);
   }
 
-  Future<void> _takeSnapshot() async {
+  Future<void> _snapshot() async {
     final controller = _controller;
     if (controller == null) return;
     try {
       final Uint8List? snapshot = await controller.takeSnapshot();
       if (!mounted) return;
-      final message = snapshot == null || snapshot.isEmpty ? 'Capture impossible sur ce flux.' : 'Photo capturée.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(snapshot == null || snapshot.isEmpty ? 'Capture indisponible.' : 'Photo capturée.')),
+      );
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Capture non prise en charge par ce flux.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Capture indisponible.')));
     }
   }
 
@@ -90,17 +75,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (_recording) {
         await controller.stopRecording();
         if (mounted) setState(() => _recording = false);
-      } else {
-        final bool started = (await controller.startRecording('/storage/emulated/0/Download')) ?? false;
-        if (!mounted) return;
-        setState(() => _recording = started);
-        if (!started) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enregistrement non disponible sur cet appareil.')));
-        }
+        return;
+      }
+      final bool started = await controller.startRecording('/storage/emulated/0/Download') ?? false;
+      if (mounted) setState(() => _recording = started);
+      if (!started && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enregistrement indisponible.')));
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enregistrement non pris en charge.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enregistrement indisponible.')));
     }
   }
 
@@ -108,139 +92,101 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final next = !_fullscreen;
     if (next) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      await SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
     } else {
-      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
     if (mounted) setState(() => _fullscreen = next);
   }
 
-  void _showUnsupported(String feature) {
+  void _unsupported(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature nécessite ONVIF PTZ, l’audio bidirectionnel ou le SDK du fabricant.')),
+      SnackBar(content: Text('$feature indisponible pour cette caméra sans protocole ONVIF ou SDK fabricant compatible.')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final player = Container(
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(_fullscreen ? 0 : 20),
-        border: _fullscreen ? null : Border.all(color: const Color(0xFF203751)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Center(
-          child: _error != null
-              ? Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
-                )
-              : _isWidgetTest
-                  ? const Icon(Icons.videocam, color: Colors.white54, size: 54)
-                  : VlcPlayer(
-                      controller: _controller!,
-                      aspectRatio: 16 / 9,
-                      placeholder: const Center(child: CircularProgressIndicator()),
-                    ),
-        ),
-      ),
-    );
-
-    if (_fullscreen) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Center(child: player),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: IconButton.filledTonal(
-                  onPressed: _toggleFullscreen,
-                  icon: const Icon(Icons.fullscreen_exit),
-                  tooltip: 'Quitter le plein écran',
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+    final controller = _controller;
+    final available = controller != null;
     return Scaffold(
       appBar: AppBar(title: Text(widget.camera.name)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            player,
-            const SizedBox(height: 14),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: Text(widget.camera.family),
-                subtitle: Text(widget.camera.location.isEmpty ? widget.camera.streamUrl : widget.camera.location),
-                trailing: Chip(label: Text(_error == null ? 'LIVE' : 'INDISPONIBLE')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                color: Colors.black,
+                child: available
+                    ? VlcPlayer(
+                        controller: controller,
+                        aspectRatio: 16 / 9,
+                        placeholder: const Center(child: CircularProgressIndicator()),
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(
+                            _error ?? (_nativePlayerAvailable ? 'Flux vidéo indisponible.' : 'Lecteur vidéo natif indisponible dans cet environnement.'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
               ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _control(
-                  _muted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
-                  'Écouter',
-                  enabled: _supportsNativePlayerControls,
-                  onPressed: _toggleMute,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: available ? Colors.green.withValues(alpha: 0.18) : Colors.red.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                _control(Icons.mic_none, 'Parler', enabled: _error == null, onPressed: () => _showUnsupported('Parler')),
-                _control(Icons.photo_camera_outlined, 'Photo', enabled: _supportsNativePlayerControls, onPressed: _takeSnapshot),
-                _control(
-                  _recording ? Icons.stop_circle_outlined : Icons.fiber_manual_record,
-                  'REC',
-                  enabled: _supportsNativePlayerControls,
-                  onPressed: _toggleRecording,
-                ),
-                _control(Icons.open_with, 'PTZ', enabled: _error == null, onPressed: () => _showUnsupported('PTZ')),
-                _control(Icons.fullscreen, 'Plein écran', enabled: _supportsNativePlayerControls, onPressed: _toggleFullscreen),
-              ],
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: _controller == null
-                  ? null
-                  : () async {
-                      final playing = await _controller!.isPlaying();
-                      if (playing == true) {
-                        await _controller!.pause();
-                      } else {
-                        await _controller!.play();
-                      }
-                      if (mounted) setState(() {});
-                    },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Lecture / Pause'),
-            ),
-          ],
-        ),
+                child: Text(available ? 'LIVE' : 'INDISPONIBLE'),
+              ),
+              const Spacer(),
+              Text(widget.camera.location),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _ControlButton(icon: _muted ? Icons.volume_off : Icons.volume_up, label: 'Écouter', onPressed: available ? _toggleMute : null),
+              _ControlButton(icon: Icons.camera_alt, label: 'Photo', onPressed: available ? _snapshot : null),
+              _ControlButton(icon: Icons.fullscreen, label: 'Plein écran', onPressed: available ? _toggleFullscreen : null),
+              _ControlButton(icon: Icons.mic, label: 'Parler', onPressed: available ? () => _unsupported('Parler') : null),
+              _ControlButton(icon: _recording ? Icons.stop_circle : Icons.fiber_manual_record, label: 'REC', onPressed: available ? _toggleRecording : null),
+              _ControlButton(icon: Icons.control_camera, label: 'PTZ', onPressed: available ? () => _unsupported('PTZ') : null),
+            ],
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _control(
-    IconData icon,
-    String label, {
-    required bool enabled,
-    required VoidCallback onPressed,
-  }) {
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({required this.icon, required this.label, required this.onPressed});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: enabled ? onPressed : null,
+      onPressed: onPressed,
       icon: Icon(icon),
       label: Text(label),
     );
