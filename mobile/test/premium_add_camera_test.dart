@@ -24,4 +24,24 @@ void main() {
     expect(AddCameraScreen.compatibilityLabel(DiscoveryCompatibilityStatus.proprietaryUnsupported), 'Propriétaire/non pris en charge');
     expect(AddCameraScreen.compatibilityLabel(DiscoveryCompatibilityStatus.unavailable), 'Indisponible');
   });
+
+  test('only validated compatible results can prefill a stream', () {
+    const compatible = DiscoveryCompatibilityResult(
+      host: '192.168.1.50',
+      detectedServices: <String>['ONVIF', 'RTSP'],
+      status: DiscoveryCompatibilityStatus.compatible,
+      explanation: 'Flux RTSP validé.',
+      validatedStream: 'rtsp://192.168.1.50:554/stream1',
+    );
+    const authRequired = DiscoveryCompatibilityResult(
+      host: '192.168.1.51',
+      detectedServices: <String>['ONVIF', 'RTSP'],
+      status: DiscoveryCompatibilityStatus.authenticationRequired,
+      explanation: 'Authentification requise.',
+      candidateEndpoint: 'rtsp://192.168.1.51:554/stream1',
+    );
+
+    expect(AddCameraScreen.prefillStreamFor(compatible), compatible.validatedStream);
+    expect(AddCameraScreen.prefillStreamFor(authRequired), isEmpty);
+  });
 }
