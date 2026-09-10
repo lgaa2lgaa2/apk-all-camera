@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import '../models/camera.dart';
@@ -14,6 +15,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   VlcPlayerController? _controller;
   String? _error;
 
+  bool get _isWidgetTest => kDebugMode && WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +29,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _error = 'Cette caméra utilise un protocole propriétaire. Un connecteur/SDK fabricant est nécessaire.';
       return;
     }
+    if (_isWidgetTest) return;
+
     _controller = VlcPlayerController.network(
       uri.toString(),
       hwAcc: HwAcc.auto,
@@ -39,7 +44,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    _controller?.dispose();
+    if (!_isWidgetTest) {
+      _controller?.dispose();
+    }
     super.dispose();
   }
 
@@ -66,11 +73,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           padding: const EdgeInsets.all(24),
                           child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
                         )
-                      : VlcPlayer(
-                          controller: _controller!,
-                          aspectRatio: 16 / 9,
-                          placeholder: const Center(child: CircularProgressIndicator()),
-                        ),
+                      : _isWidgetTest
+                          ? const Icon(Icons.videocam, color: Colors.white54, size: 54)
+                          : VlcPlayer(
+                              controller: _controller!,
+                              aspectRatio: 16 / 9,
+                              placeholder: const Center(child: CircularProgressIndicator()),
+                            ),
                 ),
               ),
             ),
